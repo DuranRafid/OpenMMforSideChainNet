@@ -72,13 +72,7 @@ class OpenMMSCN(object):
 
 if __name__ == '__main__':
     omscn = OpenMMSCN("C:\\CPCB\\David Koes\\sidechainnet_casp12_30.pkl")
-    results = open("C:\\CPCB\\David Koes\\results.txt","a")
-    print(len(omscn.get_PDBs()))
-    for i in range(177,len(omscn.get_PDBs())):
-        PDBID = omscn.get_PDBs()[i]
-        results.write('Gradient per Atom for '+PDBID+': '+str(omscn.get_force_per_atom(PDBID))+'\n')
-    results.close()
-
-
+    PDBID = omscn.get_PDBs()[0]
+    print('Gradient per Atom for '+PDBID+': '+str(omscn.get_force_per_atom(PDBID))+'\n')
 
 
