@@ -8,7 +8,7 @@ import io
 class OpenMMPDB(object):
 
     """ Operates on a single PDB object in Sidechainnet
-        Calcultes energy, force norms, force per all atoms, force per atoms present in Sidechainnent"""
+        Calculates energy, force norms, force per all atoms, force per atoms present in Sidechainnent"""
 
     def __init__(self, pdbstr):
         self.pdbstr = pdbstr
@@ -41,7 +41,7 @@ class OpenMMPDB(object):
         """
         self.forcefield = ForceField('amber14-all.xml', 'amber14/protein.ff14SB.xml')
         self.modeller = Modeller(self.pdb.topology, self.pdb.positions)
-        self.system = self.forcefield.createSystem(self.modeller.topology, nonbondedMethod=NoCutoff)
+        self.system = self.forcefield.createSystem(self.modeller.topology, nonbondedMethod=NoCutoff,implicitSolvent=GBSAOBCForce)
         self.integrator = VerletIntegrator(1.0)
         self.context = Context(self.system, self.integrator)
         self.context.setPositions(self.modeller.positions)
