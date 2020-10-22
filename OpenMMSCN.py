@@ -1,16 +1,18 @@
-from simtk.openmm.app import *
-from simtk.openmm import *
-from simtk.unit import *
-from pdbfixer import PDBFixer
+from openmmpdb import OpenMMPDB
 import sidechainnet as scn
 import pickle
-import io
+
 
 class OpenMMSCN(object):
-    """ Performs MD Simulations to SideChainNet Data"""
+    """ Performs to SideChainNet Data"""
 
-    def __init__(self,path_to_pickle='sidechainnet_casp12_30.pkl'):
-        self.data = self._load_data(path_to_pickle)
+    def __init__(self,data,path_to_pickle=None):
+        if (data is None and path_to_pickle is None) or (data is not None and path_to_pickle is not None):
+            raise AssertionError("Both data and path can not be present or absent.")
+        if data is None:
+            self.data = self._load_data(path_to_pickle)
+        else:
+            self.data = data
 
     def _load_data(self, path_to_pickle):
         with open(path_to_pickle, "rb") as f:
@@ -18,61 +20,46 @@ class OpenMMSCN(object):
         return data
 
     def get_PDBs(self):
-        return list(self.data.keys())
+        """
+        Returns all the PDB IDs present in data['train']
+        """
+        return list(self.data['train']['ids'])
 
-    def _get_pdb_object(self,PDBID):
+    def get_index(self,PDBID):
         """
-             :param PDBID: The PDBID which is a key of self.data dictionary
-             :return: Returs the PDBFixer Object
+        Returns index of PDB ID in data['train']
         """
-        true_coords = self.data[PDBID]['crd']
+        return self.data['train']['ids'].index(PDBID)
+
+    def get_openmmpdb_object(self,index):
+        """
+             :param index: The index in data['train']
+             :return: Returns an OpenMMPDB object
+        """
+        true_coords = self.data['train']['crd'][index]
         #angles = self.data[PDBID]['ang']
-        sequence = self.data[PDBID]['seq']
-        sb = scn.StructureBuilder(sequence, coords=true_coords)
-        pdb = PDBFixer(pdbfile=io.StringIO(sb.to_pdb_string()))
-        pdb.findMissingResidues()
-        pdb.findMissingAtoms()
-        pdb.addMissingAtoms()
-        pdb.addMissingHydrogens(7.0)
-        return pdb
+        sequence = self.data['train']['seq'][index]
+        sb = scn.StructureBuilder(sequence, crd=true_coords)
+        sb._initialize_coordinates_and_PdbCreator()
+        pdbstr = sb.pdb_creator.get_pdb_string()
+        pdb_mm = OpenMMPDB(pdbstr)
+        return pdb_mm
 
-    def set_up_MD_env(self, PDBID):
-        """
-            :param PDBID: The PDBID which is a key of self.data dictionary
-            :return: Sets up Molecular Dynamics Environment for given PDBID. Returns Nothing.
-        """
-        self.pdb = self._get_pdb_object(PDBID)
-        self.forcefield = ForceField('amber14-all.xml', 'amber14/protein.ff14SB.xml')
-        self.modeller = Modeller(self.pdb.topology, self.pdb.positions)
-        self.system = self.forcefield.createSystem(self.modeller.topology, nonbondedMethod=NoCutoff)
-        self.integrator = LangevinIntegrator(300 * kelvin, 1 / picosecond, 0.002 * picoseconds)
-        self.simulation = Simulation(self.modeller.topology, self.system, self.integrator)
-        self.simulation.context.setPositions(self.modeller.positions)
+    def get_energy_per_batch(self,start_index,batch_size=10):
+        for index in range(start_index,start_index+batch_size):
+            pdb_mm = self.get_openmmpdb_object(index)
+            yield pdb_mm.get_potential_energy()
 
-    def get_force_per_atom(self,PDBID):
-        """
-             :param PDBID: The PDBID which is a key of self.data dictionary
-             :return: Returns Gradient Per Atom for the PDB
-        """
-        if len(self.data[PDBID].keys())!= 5:
-            print("The keys are not standard. %s Can not be processed" % PDBID)
-            return
-        self.set_up_MD_env(PDBID)
-        state = self.simulation.context.getState(getForces=True)
-        forces = state.getForces()
-        forceNormSum = 0.0 * kilojoules ** 2 / mole ** 2 / nanometer ** 2
-        for f in forces:
-            forceNormSum += dot(f, f)
-        forceNorm = sqrt(forceNormSum)
-
-        #assert count == pdb.topology.getNumAtoms(), "Forces not available for all atoms"
-        #print("forceNorm =", forceNorm)
-        return forceNorm / self.pdb.topology.getNumAtoms()
+    def get_gradient_per_batch(self,start_index,batch_size=10):
+        for index in range(start_index, start_index + batch_size):
+            pdb_mm = self.get_openmmpdb_object(index)
+            yield pdb_mm.get_forces_per_atoms()
 
 
 if __name__ == '__main__':
-    omscn = OpenMMSCN("C:\\CPCB\\David Koes\\sidechainnet_casp12_30.pkl")
-    PDBID = omscn.get_PDBs()[0]
-    print('Gradient per Atom for '+PDBID+': '+str(omscn.get_force_per_atom(PDBID))+'\n')
+    data = scn.load(casp_version=12, thinning=30)
+    omscn = OpenMMSCN(data)
+    for energy in omscn.get_energy_per_batch(0): print(energy)
+    for gradient in omscn.get_gradient_per_batch(0): print(gradient)
 
 
