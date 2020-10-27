@@ -20,7 +20,7 @@ class OpenMMPDB(object):
         self.pdb.addMissingHydrogens(7.0)
         self._set_up_env()
 
-    def get_atom_residue(self):
+    def _get_atom_residue(self):
         """ Get Atom Name and Residue Name for Each Atom present in Sidechainnent PBDString"""
         for line in self.pdbstr.split('\n'):
             if 'ATOM' in line:
@@ -30,7 +30,7 @@ class OpenMMPDB(object):
 
     def _pos_atom_map(self, init_positions):
         self.pos_atom_map = dict()
-        for pos, atomres in zip(init_positions, self.get_atom_residue()):
+        for pos, atomres in zip(init_positions, self._get_atom_residue()):
             _pos = ["%.4f" % item for item in list(pos.value_in_unit(nanometer))]
             self.pos_atom_map[str(_pos)] = atomres
 
