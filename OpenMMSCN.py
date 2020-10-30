@@ -2,6 +2,7 @@ from openmmpdb import OpenMMPDB
 import sidechainnet as scn
 import pickle
 
+import random
 
 class OpenMMSCN(object):
     """ Performs to SideChainNet Data"""
@@ -55,11 +56,22 @@ class OpenMMSCN(object):
             pdb_mm = self.get_openmmpdb_object(index)
             yield pdb_mm.get_forces_per_atoms()
 
+    def get_data_per_batch(self,start_index,batch_size=10):
+        for index in range(start_index, start_index + batch_size):
+            yield (self.data['train']['seq'][index], self.data['train']['crd'][index])
 
 if __name__ == '__main__':
     data = scn.load(casp_version=12, thinning=30)
     omscn = OpenMMSCN(data)
-    for energy in omscn.get_energy_per_batch(0): print(energy)
-    for gradient in omscn.get_gradient_per_batch(0): print(gradient)
+   # for energy in omscn.get_energy_per_batch(0): print(energy)
+    #for gradient in omscn.get_gradient_per_batch(0): print(gradient)
+
+    for i in range(50):
+        pdbmm = omscn.get_openmmpdb_object(0)
+        print(i,'Before',pdbmm.get_potential_energy())
+        pdbmm.localenergyminimize()
+        print(i,'After',pdbmm.get_potential_energy())
+  #  print(pdbmm.get_position())
+
 
 

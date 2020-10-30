@@ -3,7 +3,9 @@ from simtk.openmm import *
 from simtk.unit import *
 from pdbfixer import PDBFixer
 import io
-
+import random
+random.seed(10)
+from simtk.openmm import LocalEnergyMinimizer
 
 class OpenMMPDB(object):
 
@@ -47,6 +49,11 @@ class OpenMMPDB(object):
         self.context.setPositions(self.modeller.positions)
         self.state = self.context.getState(getVelocities=True, getPositions=True, getParameters=True, getEnergy=True,
                                            getForces=True)
+
+    def get_position(self):
+        if self.state is None:
+            self._set_up_env()
+        return self.state.getPositions() # This returns the position in nanometers. In PDB File, the coordinates are in Amstrong
 
     def get_forces_per_all_atom(self):
         """ Returns Force Gradients acting on all atoms including Hydrogens and
@@ -97,3 +104,6 @@ class OpenMMPDB(object):
             forceNormSum += dot(f, f)
         forceNorm = sqrt(forceNormSum)
         return forceNorm
+
+    def localenergyminimize(self):
+        LocalEnergyMinimizer.minimize(self.context)
