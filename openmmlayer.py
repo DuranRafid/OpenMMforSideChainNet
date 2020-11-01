@@ -30,6 +30,7 @@ def inject_noise(coords):
     :param coords: The co-ordinates of sidechainnet. Dimension L x 14 x 3, where L is the number of residues
     :return: The co-ordinates altered with random noise. All zero co-ordinates means missing atoms. Those are not altered.
     """
+    nonzero = np.nonzero(coords)
     for i in range(len(nonzero[0])):
         coords[nonzero[0][i]][nonzero[1][i]] += random.randint(-5,5)
     return coords
