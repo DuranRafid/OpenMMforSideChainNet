@@ -2,10 +2,10 @@ from simtk.openmm.app import *
 from simtk.openmm import *
 from simtk.unit import *
 from pdbfixer import PDBFixer
+import numpy as np
 import io
-import random
-random.seed(10)
 from simtk.openmm import LocalEnergyMinimizer
+from collections import defaultdict
 
 class OpenMMPDB(object):
 
@@ -27,14 +27,14 @@ class OpenMMPDB(object):
         for line in self.pdbstr.split('\n'):
             if 'ATOM' in line:
                 spltline = list(filter(lambda a: a != '', line.split(' ')))
-                yield ((spltline[2], spltline[3]))
+                yield spltline[2], spltline[3]
 
 
     def _pos_atom_map(self, init_positions):
-        self.pos_atom_map = dict()
+        self.pos_atom_map= defaultdict(lambda : defaultdict(dict))
         for pos, atomres in zip(init_positions, self._get_atom_residue()):
-            _pos = ["%.4f" % item for item in list(pos.value_in_unit(nanometer))]
-            self.pos_atom_map[str(_pos)] = atomres
+            _pos = ''.join(["%.4f" % item for item in pos.value_in_unit(nanometer)])
+            self.pos_atom_map[_pos] = atomres
 
     def _set_up_env(self):
         """
@@ -66,14 +66,13 @@ class OpenMMPDB(object):
     def _pos_force_map(self):
         """ Creates a Map between SideChainNet atoms and the Force Gradients acting on them.
         It filters out all the Hydrogens and missing residue atoms by PDBFixer"""
-
         self.pos_force_map = dict()
         positions = self.state.getPositions()
         forces = self.state.getForces()
         for pos, force in zip(positions, forces):
-            _pos = ["%.4f" % item for item in list(pos.value_in_unit(nanometer))]
-            if str(_pos) in self.pos_atom_map.keys():
-                self.pos_force_map[str(_pos)] = force
+            _pos = ''.join(["%.4f" % item for item in pos.value_in_unit(nanometer)])
+            if self.pos_atom_map.get(_pos) is not None:
+                self.pos_force_map[_pos] = force
         return self.pos_force_map
 
     def get_forces_per_atoms(self):
@@ -106,4 +105,4 @@ class OpenMMPDB(object):
         return forceNorm
 
     def localenergyminimize(self):
-        LocalEnergyMinimizer.minimize(self.context)
+        LocalEnergyMinimizer.minimize(self.context,maxIterations=100)
